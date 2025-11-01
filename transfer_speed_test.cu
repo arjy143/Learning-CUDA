@@ -11,16 +11,17 @@ int main(int argc, char** argv)
 {	
 	//by default it will bitshift 24 left to give about 16 million floats (64mb)
 	int bitshift = 24;
-
+	
+	//can pass in a value to bit shift by
 	if (argc > 0)
 	{
 		bitshift = std::atoi(argv[1]);
 	}
 
-	int N = 1 << bitshift;
+	size_t N = 1ULL << bitshift;
 	size_t size = N * sizeof(float);
 
-	printf("Amount of floats (N): %d \n", N);
+	printf("Amount of floats (N): %zu \n", N);
 	printf("size of floats (Bytes): %zu \n", size);
 
 	float *h_data = new float[N];
