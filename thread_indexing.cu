@@ -1,29 +1,16 @@
-/* Lesson 1
- * SECTION 1 - Intro using vector addition
- * CUDA lets you utilise the thousands of threads that a gpu has in order to do repetitive code rapidly.
- *
- * Grid - collection of blocks
- * Block - group of threads that cooperate using shared memory
- * Thread - smallest unit of execution
- *
- * Each thread knows certain values:
- *  gridDim.x - no. of blocks per grid
- *  blockDim.x - no. of threads per block
- *  blockIdx.x - blocks index in grid
- *  threadIdx.x - index of thread within block
- *
- * This lets a global thread ID be computed:
- * blockIdx.x * blockDim.x + threadIdx.x 
- * This is used to ensure each thread can work on a different bit of data
- *
- * What is a CUDA kernel? It's just a function that runs on a gpu. marked with __global__ identifier at the start.
- *
- * SECTION 2 - Timing
- * CUDA functions could return errors, so this needs to be checked for.
- * If successful, will return cudaSuccess.
- * Time GPU execution using cuda events. You can use GPU timers which are more accurate than CPU ones,
- * because the CPU ones include overhead.
- *
+/*
+    Thread indexing for arrays and matrices
+    
+    Calculate global thread ID like seen before, using the matmul approach.
+    You'd think that you could just do N/threadsPerBlock to get the block num, but it is best practice 
+    to have an extra block just in case, hence the ceiling calculation.
+    
+    With matrices you can use x and y. Hence, a 16x16 matrix representing a block could have 256 threads.
+    row is given by blockIdx.y * blockDim.y + threadIdx.y
+    column is given by blockIdx.x * blockDim.x + threadIdx.x
+    
+    Now to extend the vector addition code to matrix addition.
+
  */
 
 #include <iostream>
@@ -42,14 +29,16 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort=t
     }
   }
 }
-__global__ void vectorAdd(const float* A, const float* B, float* C, int N)
+
+__global__ void matrixAdd(const float* A, const float* B, float* C, int M, int N)
 {
   //compute thread identifier, which is also the index of the item it will act on
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  int row = blockIdx.y * blockDim.y + threadIdx.y;
+  int col = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if (i < N)
+  if (row < M && col < N)
   {
-    C[i] = A[i] + B[i];
+    C[row * N + col] = A[row * N + col] + B[row * N + col];
   }
 
 }
@@ -62,16 +51,18 @@ int main()
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
 
-  //Testing out adding vectors of a million floats
-  int N = 1 << 20;
-  size_t size = N * sizeof(float);
+  //represent matrices as 1D flattened arrays
+  int M = 8;
+  int N = 8;
+  int length =  M * N;
+  size_t size = length * sizeof(float);
 
   //now we need to do the hard part, which is allocating the memory on the gpu and telling it to run the specific kernel, then copying the results back
-  float *h_A = new float[N];
-  float *h_B = new float[N];
-  float *h_C = new float[N];
+  float *h_A = new float[length];
+  float *h_B = new float[length];
+  float *h_C = new float[length];
 
-  for (int i = 0; i < N; i++) {
+  for (int i = 0; i < length; i++) {
       h_A[i] = 1.0f;
       h_B[i] = 2.0f;
   }
@@ -85,10 +76,10 @@ int main()
   CUDA_CHECK(cudaMemcpy(d_B, h_B, size, cudaMemcpyHostToDevice));
 
   int threadsPerBlock = 256;
-  int blocks = (N + threadsPerBlock - 1) / threadsPerBlock;
+  int blocks = (length + threadsPerBlock - 1) / threadsPerBlock;
 
   cudaEventRecord(start);
-  vectorAdd<<<blocks, threadsPerBlock>>>(d_A, d_B, d_C, N);
+  matrixAdd<<<blocks, threadsPerBlock>>>(d_A, d_B, d_C, M, N);
   cudaEventRecord(stop);
 
   CUDA_CHECK(cudaEventSynchronize(stop));
@@ -111,6 +102,5 @@ int main()
   cudaFree(d_A);
   cudaFree(d_B);
   cudaFree(d_C);
-
   return 0;
 }

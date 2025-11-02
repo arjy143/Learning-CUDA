@@ -25,7 +25,7 @@
  * because the CPU ones include overhead.
  *
  */
-//test comment
+
 #include <iostream>
 #include <cuda_runtime.h>
 
@@ -112,6 +112,6 @@ int main()
   cudaFree(d_A);
   cudaFree(d_B);
   cudaFree(d_C);
-
+//another test comment
   return 0;
 }
