@@ -8,16 +8,17 @@
 #include <cuda_runtime.h>
 
 int main(int argc, char** argv)
-{	
+{
 	//by default it will bitshift 24 left to give about 16 million floats (64mb)
 	int bitshift = 24;
-	
+
 	//can pass in a value to bit shift by
 	if (argc > 0)
 	{
 		bitshift = std::atoi(argv[1]);
 	}
-
+    
+    //need to be very careful about bitshifting here because if ULL not specified, then it will do a signed to unsigned conversion and actually reduce the amount of bits being shifted
 	size_t N = 1ULL << bitshift;
 	size_t size = N * sizeof(float);
 
