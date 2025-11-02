@@ -1,7 +1,8 @@
 /* Matrix Multiplication
     
    This is the foundation of basically all linear algebra on the GPU.
-
+   In the below implementation we initially read the full row and column from the matrix within each thread, which can be slow.
+   That's why we can used advanced techniques such as usign shared memory and tiling.
  */
 
 #include <iostream>
