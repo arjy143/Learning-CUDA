@@ -25,7 +25,7 @@
  * because the CPU ones include overhead.
  *
  */
-
+//test comment
 #include <iostream>
 #include <cuda_runtime.h>
 
@@ -42,6 +42,7 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort=t
     }
   }
 }
+
 __global__ void vectorAdd(const float* A, const float* B, float* C, int N)
 {
   //compute thread identifier, which is also the index of the item it will act on
