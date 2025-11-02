@@ -10,7 +10,8 @@
     column is given by blockIdx.x * blockDim.x + threadIdx.x
     
     Now to extend the vector addition code to matrix addition.
-
+    
+    Testing with 8x8 matrix got a very good speed of < 2ms. Testing with a 1024x1024 matrix somehow got an even better speed, closer to 1ms, showing how effective the parallelisation is.
  */
 
 #include <iostream>
@@ -52,8 +53,8 @@ int main()
   cudaEventCreate(&stop);
 
   //represent matrices as 1D flattened arrays
-  int M = 8;
-  int N = 8;
+  int M = 1024;
+  int N = 1024;
   int length =  M * N;
   size_t size = length * sizeof(float);
 
