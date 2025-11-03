@@ -2,7 +2,11 @@
     
    This is the foundation of basically all linear algebra on the GPU.
    In the below implementation we initially read the full row and column from the matrix within each thread, which can be slow.
-   That's why we can used advanced techniques such as usign shared memory and tiling.
+   That's why we can used advanced techniques such as using shared memory and tiling.
+
+   Shared memory is like on chip cache that threads in a block can share.
+   Matrices need to be split into tiles that fit into shared memory. Each thread in a block computes 1 element of the tile.
+   Threads can work together to load tiles into shaed memory.
  */
 
 #include <iostream>
@@ -22,20 +26,65 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort=t
   }
 }
 
+#define TILE_WIDTH 16
+  
 __global__ void matrixMult(const float* A, const float* B, float* C, int M, int N, int K)
-{
-  int row = blockIdx.y * blockDim.y + threadIdx.y;
-  int col = blockIdx.x * blockDim.x + threadIdx.x;
+{      
+  __shared__ float tileA[TILE_WIDTH][TILE_WIDTH];
+  __shared__ float tileB[TILE_WIDTH][TILE_WIDTH];
+         
+  int row = blockIdx.y * TILE_WIDTH + threadIdx.y;
+  int col = blockIdx.x * TILE_WIDTH + threadIdx.x;
+  
+
+  float value = 0.0f;
+  for (int t = 0; t < (K + TILE_WIDTH - 1) / TILE_WIDTH; t++)  
+  {
+
+      if (row < M && (t * TILE_WIDTH + threadIdx.x) < K)
+      {  
+          tileA[threadIdx.y][threadIdx.x] = A[row * K + t * TILE_WIDTH + threadIdx.x];  
+      } 
+      else  
+      {
+          tileA[threadIdx.y][threadIdx.x] = 0.0f; 
+      } 
+      
+      if ((t * TILE_WIDTH + threadIdx.y) < K && col < N)
+      {
+          tileB[threadIdx.y][threadIdx.x] = B[(t * TILE_WIDTH + threadIdx.y) * N + col];
+      }
+      else
+      {
+          tileB[threadIdx.y][threadIdx.x] = 0.0f;
+      }
+
+      //wait for all of the threads to load the data
+      __syncthreads();
+
+      for (int k = 0; k < TILE_WIDTH; k++)
+      {
+          value += tileA[threadIdx.y][k] * tileB[k][threadIdx.x];
+      }
+
+      __syncthreads();
+    
+  }       
 
   if (row < M && col < N)
   {
-      float sum = 0.0f;
-      for (int k = 0; k < K; k++)
-      {
-          sum += A[row * N + col] + B[row * N + col];
-      }
-      C[row * N + col] = sum;
+      C[row * N + col] = value;
   }
+
+/*   if (row < M && col < N) */
+/*   { */  
+/*       float sum = 0.0f; */
+/*       for (int k = 0; k < K; k++) */
+/*       { */  
+/*           sum += A[row * N + col] + B[row * N + col]; */
+/*       } */
+/*       C[row * N + col] = sum; */
+/*   } */
 
 }
 
@@ -73,9 +122,9 @@ int main()
   CUDA_CHECK(cudaMemcpy(d_A, h_A, sizeA, cudaMemcpyHostToDevice));
   CUDA_CHECK(cudaMemcpy(d_B, h_B, sizeB, cudaMemcpyHostToDevice));
 
-  dim3 threadsPerBlock(16,16);
-  dim3 blocks((N + threadsPerBlock.x - 1) / threadsPerBlock.x,
-               (M + threadsPerBlock.y - 1) / threadsPerBlock.y);
+  dim3 threadsPerBlock(TILE_WIDTH,TILE_WIDTH);
+  dim3 blocks((N + TILE_WIDTH - 1) / TILE_WIDTH,
+               (M + TILE_WIDTH - 1) / TILE_WIDTH);
 
   cudaEventRecord(start);
   matrixMult<<<blocks, threadsPerBlock>>>(d_A, d_B, d_C, M, N, K);
