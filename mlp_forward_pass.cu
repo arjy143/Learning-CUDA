@@ -124,6 +124,17 @@ __global__ void reluActivation(float* C, int size)
     }
 }
 
+__global__ void sigmoidActivation(float* C, int size)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if (i < size) 
+    {
+        C[i] = 1.0f / (1.0f + expf(-C[i]));
+    }
+}
+
+
 int main(int argc, char** argv)
 {
     //batch size, input features, output features
@@ -164,7 +175,7 @@ int main(int argc, char** argv)
     //forward pass here
     matmul<<<blocks, threads>>>(d_X, d_W,d_Y, M, N, K);
     addBias<<<blocks, threads>>>(d_Y, d_b, M, N);
-    reluActivation<<<blocks, threads>>>(d_Y, M*N);
+    sigmoidActivation<<<blocks, threads>>>(d_Y, M*N);
 
     cudaMemcpy(h_Y, d_Y, M*N * sizeof(float), cudaMemcpyDeviceToHost);
 
